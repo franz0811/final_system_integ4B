@@ -1,36 +1,52 @@
 
-import fs from 'node:fs'
-import path from 'node:path'
+import { list } from '@vercel/blob'
 
-export default defineEventHandler(() => {
+export default defineEventHandler(async () => {
   try {
-    const audioDir = path.resolve(process.cwd(), 'public/audio')
-
-    if (!fs.existsSync(audioDir)) {
-      fs.mkdirSync(audioDir, { recursive: true })
+    if (!process.env.BLOB_STORE_ID) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Blob Store ID is not configured.'
+      })
     }
 
-    const files = fs.readdirSync(audioDir, {
-      withFileTypes: true
-    })
+    // Get all audio files from Vercel Blob
+    let cursor
+    const allBlobs = []
 
-    return files
-      .filter(file =>
-        file.isFile() &&
-        /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.name)
+    do {
+      const result = await list({
+        prefix: 'audio/',
+        limit: 1000,
+        cursor,
+        storeId: process.env.BLOB_STORE_ID
+      })
+
+      allBlobs.push(...result.blobs)
+      cursor = result.cursor
+    } while (cursor)
+
+    // Return only supported audio files
+    return allBlobs
+      .filter(blob =>
+        /\.(mp3|wav|ogg|m4a|aac)$/i.test(blob.pathname)
       )
-      .map(file => ({
-        name: file.name,
-        url: `/audio/${encodeURIComponent(file.name)}`
+      .map(blob => ({
+        name: blob.pathname.split('/').pop(),
+        url: blob.url
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
   } catch (error) {
-    console.error('AUDIO LIBRARY ERROR:', error)
+    console.error('AUDIO LIBRARY BLOB ERROR:', error)
+
+    if (error.statusCode) {
+      throw error
+    }
 
     throw createError({
       statusCode: 500,
-      statusMessage: 'Unable to read audio library.'
+      statusMessage: 'Unable to read audio library from Blob Storage.'
     })
   }
 })

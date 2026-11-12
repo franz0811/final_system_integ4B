@@ -1,5 +1,5 @@
 
-import fs from 'node:fs'
+import { put } from '@vercel/blob'
 import path from 'node:path'
 
 export default defineEventHandler(async (event) => {
@@ -13,52 +13,98 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const file = body.find(item => item.name === 'audio') || body[0]
+    // Hanapin ang audio field na ipinapadala ng frontend
+    const file = body.find(item => item.name === 'audio')
 
-    if (!file.data || !file.filename) {
+    if (!file || !file.data || !file.filename) {
       throw createError({
         statusCode: 400,
         statusMessage: 'Invalid audio file.'
       })
     }
 
-    const uploadDir = path.resolve(process.cwd(), 'public/audio')
+    // Maximum 4 MB para safe sa Vercel Function upload limit
+    const MAX_SIZE = 4 * 1024 * 1024
 
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
+    if (file.data.length > MAX_SIZE) {
+      throw createError({
+        statusCode: 413,
+        statusMessage: 'Audio file must be smaller than 4 MB.'
+      })
     }
 
+    // Validate audio extension
     const originalName = path.basename(file.filename)
     const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const extension = path.extname(safeName).toLowerCase()
 
-    if (!['.mp3', '.wav', '.ogg', '.m4a', '.aac'].includes(extension)) {
+    const allowedExtensions = [
+      '.mp3',
+      '.wav',
+      '.ogg',
+      '.m4a',
+      '.aac'
+    ]
+
+    if (!allowedExtensions.includes(extension)) {
       throw createError({
         statusCode: 400,
         statusMessage: 'Unsupported audio format.'
       })
     }
 
+    // Check Blob Store ID for OIDC authentication
+    if (!process.env.BLOB_STORE_ID) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Blob Store ID is not configured.'
+      })
+    }
+
+    // Create a unique filename
     const baseName = path.basename(safeName, extension)
     const fileName = `${baseName}-${Date.now()}${extension}`
 
-    const filePath = path.join(uploadDir, fileName)
+    // Audio MIME types
+    const mimeTypes = {
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac'
+    }
 
-    fs.writeFileSync(filePath, file.data)
+    const contentType = file.type || mimeTypes[extension]
+
+    // Upload directly to Vercel Blob using OIDC
+    const blob = await put(
+      `audio/${fileName}`,
+      file.data,
+      {
+        access: 'public',
+        addRandomSuffix: true,
+        contentType,
+        storeId: process.env.BLOB_STORE_ID
+      }
+    )
 
     return {
       success: true,
       message: 'Audio successfully uploaded!',
-      name: fileName,
-      url: `/audio/${encodeURIComponent(fileName)}`
+      name: blob.pathname.split('/').pop(),
+      url: blob.url
     }
 
   } catch (error) {
-    console.error('UPLOAD ERROR:', error)
+    console.error('BLOB AUDIO UPLOAD ERROR:', error)
+
+    if (error.statusCode) {
+      throw error
+    }
 
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || error.message || 'Server upload error.'
+      statusCode: 500,
+      statusMessage: 'Unable to upload audio to Blob Storage.'
     })
   }
 })
