@@ -102,21 +102,14 @@ definePageMeta({ middleware: 'auth' })
 import { ref, onMounted, onUnmounted } from 'vue'
 import WaveSurfer from 'wavesurfer.js'
 
-const route = useRoute()
 const waveformRef = ref(null)
 const wavesurfer = ref(null)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(0.8)
-const selectedSpeed = ref(Number(route.query.speed) || 1)
-
-// Siguraduhin na valid HTTP URL ang gagamitin, kung wala o invalid, gamitin ang default working sample
-const defaultAudioUrl = 'https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg'
-const queryUrl = route.query.url
-const audioUrlToLoad = (queryUrl && typeof queryUrl === 'string' && queryUrl.startsWith('http')) ? queryUrl : defaultAudioUrl
-
-const currentTrackName = ref(route.query.title && route.query.title !== 'song' ? route.query.title : 'Acoustic Rain Sample')
+const selectedSpeed = ref(1)
+const currentTrackName = ref('Sample Beat (Acoustic)')
 const errorMessage = ref('')
 const uploadedFile = ref(null)
 
@@ -138,16 +131,11 @@ onMounted(() => {
       normalize: true
     })
 
-    // I-load ang wastong audioUrlToLoad na may kasamang fallback
-    wavesurfer.value.load(audioUrlToLoad)
+    wavesurfer.value.load(presetTracks[0].url)
 
     wavesurfer.value.on('ready', () => {
       duration.value = wavesurfer.value.getDuration()
       errorMessage.value = ''
-      // I-apply ang napiling speed rate galing sa library query
-      if (selectedSpeed.value) {
-        wavesurfer.value.setPlaybackRate(selectedSpeed.value)
-      }
     })
 
     wavesurfer.value.on('audioprocess', (time) => {

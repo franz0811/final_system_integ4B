@@ -3,7 +3,7 @@
     <v-card class="pa-8 elevation-4 rounded-xl" max-width="420" width="100%">
       <div class="text-center mb-6">
         <v-icon icon="mdi-waveform" size="64" color="primary" class="mb-2"></v-icon>
-        <h2 class="text-h5 font-weight-bold">WaveSync Portal</h2>
+        <h2 class="text-h5 font-weight-bold">System Integration Portal</h2>
         <p class="text-subtitle-2 text-grey">Sign in with your Google account to proceed</p>
       </div>
 
@@ -17,7 +17,7 @@
       <v-divider class="my-4"></v-divider>
       
       <div class="text-center">
-        <span class="text-caption text-grey">See the Sound. Feel the Wave</span>
+        <span class="text-caption text-grey">Practical Examination Project — Nuxt 4 & WaveSurfer.js</span>
       </div>
     </v-card>
   </v-container>
@@ -73,10 +73,10 @@ onMounted(() => {
         callback: handleCredentialResponse
       })
       
-      // I-render ang opisyal na Google Sign-in button sa English
+      // I-render ang opisyal na Google Sign-in button
       window.google.accounts.id.renderButton(
         document.getElementById('google-signin-btn'),
-        { theme: 'outline', size: 'large', width: '350', text: 'signin_with', locale: 'en' }
+        { theme: 'outline', size: 'large', width: '350' }
       )
     }
   }
